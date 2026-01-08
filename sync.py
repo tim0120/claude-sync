@@ -318,7 +318,7 @@ def sync_all(config: dict, push: bool = False) -> dict:
     if synced_count > 0:
         run_git(repo_path, "add", ".")
         commit_msg = f"Sync {synced_count} sessions from {machine_id}"
-        run_git(repo_path, "commit", "-m", commit_msg)
+        run_git(repo_path, "commit", "--no-verify", "-m", commit_msg)
         print(f"\nCommitted: {commit_msg}")
 
         if push:
