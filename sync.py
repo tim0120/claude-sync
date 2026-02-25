@@ -339,7 +339,7 @@ def extract_session_metadata(session_path: Path, config: dict) -> dict:
 
         # Machine info
         "machine_id": config["machine_id"],
-        "hostname": socket.gethostname(),
+        "hostname": config["machine_id"],
         "username": getpass.getuser(),
         "platform": platform.system().lower(),
         "platform_version": platform.release(),
@@ -400,9 +400,11 @@ def get_synced_sessions(repo_path: Path) -> dict:
         try:
             with open(p) as f:
                 m = json.load(f)
-            result[p.stem] = m.get("synced_file_size", 0)
+            # -1 sentinel = synced but size unknown (old metadata without field)
+            # Only re-sync if size was recorded AND file has grown since
+            result[p.stem] = m.get("synced_file_size", -1)
         except Exception:
-            result[p.stem] = 0
+            result[p.stem] = -1
     return result
 
 
@@ -489,7 +491,7 @@ def sync_all(config: dict, push: bool = False) -> dict:
             prev_size = synced.get(session_file.stem)
             if prev_size is None:
                 new_sessions.append(session_file)  # never synced
-            elif session_file.stat().st_size > prev_size:
+            elif prev_size >= 0 and session_file.stat().st_size > prev_size:
                 new_sessions.append(session_file)  # resumed and grown
 
     print(f"Found {len(new_sessions)} new/updated sessions to sync")
