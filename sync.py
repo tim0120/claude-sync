@@ -384,17 +384,26 @@ def extract_session_metadata(session_path: Path, config: dict) -> dict:
 
         # Source reference
         "source_file": str(session_path),
+        "synced_file_size": session_path.stat().st_size,
     }
 
 
 # === Sync Logic ===
 
-def get_synced_sessions(repo_path: Path) -> set:
-    """Get set of already-synced session IDs (flat metadata dir)."""
+def get_synced_sessions(repo_path: Path) -> dict:
+    """Get map of session_id -> synced_file_size from metadata dir."""
     metadata_dir = repo_path / "metadata"
     if not metadata_dir.exists():
-        return set()
-    return {p.stem for p in metadata_dir.glob("*.json")}
+        return {}
+    result = {}
+    for p in metadata_dir.glob("*.json"):
+        try:
+            with open(p) as f:
+                m = json.load(f)
+            result[p.stem] = m.get("synced_file_size", 0)
+        except Exception:
+            result[p.stem] = 0
+    return result
 
 
 def sync_session(session_path: Path, config: dict, repo_path: Path) -> bool:
@@ -469,18 +478,21 @@ def sync_all(config: dict, push: bool = False) -> dict:
 
     # Get already synced sessions (flat)
     synced = get_synced_sessions(repo_path)
-    print(f"Found {len(synced)} already-synced sessions")
+    print(f"Found {len(synced)} previously-synced sessions")
 
-    # Find all session files
+    # Find new or grown (resumed) sessions
     new_sessions = []
     for project_dir in claude_path.iterdir():
         if not project_dir.is_dir() or project_dir.name.startswith("."):
             continue
         for session_file in project_dir.glob("*.jsonl"):
-            if session_file.stem not in synced:
-                new_sessions.append(session_file)
+            prev_size = synced.get(session_file.stem)
+            if prev_size is None:
+                new_sessions.append(session_file)  # never synced
+            elif session_file.stat().st_size > prev_size:
+                new_sessions.append(session_file)  # resumed and grown
 
-    print(f"Found {len(new_sessions)} new sessions to sync")
+    print(f"Found {len(new_sessions)} new/updated sessions to sync")
 
     # Sync each session
     synced_count = 0
