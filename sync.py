@@ -35,6 +35,8 @@ def get_default_config() -> dict:
         "claude_projects_path": str(Path.home() / ".claude" / "projects"),
         "sync_on_save": True,
         "include_thinking": False,  # Extended thinking blocks can be large
+        "github_token": "",
+        "github_repo": "tim0120/claude-sync-data",
     }
 
 
@@ -524,6 +526,13 @@ def sync_all(config: dict, push: bool = False) -> dict:
         print(f"\nCommitted: {commit_msg}")
 
         if push:
+            # Use HTTPS with token if configured (takes priority over SSH remote)
+            token = config.get("github_token", "")
+            if token:
+                repo_slug = config.get("github_repo", "tim0120/claude-sync-data")
+                https_url = f"https://{token}@github.com/{repo_slug}.git"
+                run_git(repo_path, "remote", "set-url", "origin", https_url)
+
             for attempt in range(3):
                 pull = run_git(repo_path, "pull", "--rebase", "--no-verify", "origin", "main")
                 if pull.returncode != 0:
