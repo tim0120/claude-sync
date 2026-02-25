@@ -500,7 +500,7 @@ def sync_all(config: dict, push: bool = False) -> dict:
         print(f"\nCommitted: {commit_msg}")
 
         if push:
-            pull = run_git(repo_path, "pull", "--rebase", "--no-verify")
+            pull = run_git(repo_path, "pull", "--rebase", "--no-verify", "origin", "main")
             if pull.returncode != 0:
                 print(f"Pull failed: {pull.stderr}")
             result = run_git(repo_path, "push", "--no-verify")
