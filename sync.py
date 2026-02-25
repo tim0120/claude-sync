@@ -19,6 +19,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Set
 import argparse
+import time
 
 
 # === Configuration ===
@@ -523,7 +524,6 @@ def sync_all(config: dict, push: bool = False) -> dict:
         print(f"\nCommitted: {commit_msg}")
 
         if push:
-            import time
             for attempt in range(3):
                 pull = run_git(repo_path, "pull", "--rebase", "--no-verify", "origin", "main")
                 if pull.returncode != 0:
