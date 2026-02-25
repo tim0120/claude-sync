@@ -510,18 +510,33 @@ def sync_all(config: dict, push: bool = False) -> dict:
     if synced_count > 0:
         run_git(repo_path, "add", ".")
         commit_msg = f"Sync {synced_count} sessions from {machine_id}"
-        run_git(repo_path, "commit", "--no-verify", "-m", commit_msg)
+        commit_result = run_git(repo_path, "commit", "--no-verify", "-m", commit_msg)
+        if commit_result.returncode != 0:
+            print(f"\nCommit failed: {commit_result.stderr.strip()}")
+            return {
+                "machine_id": machine_id,
+                "previously_synced": len(synced),
+                "newly_synced": synced_count,
+                "total": len(synced) + synced_count,
+                "error": "commit failed",
+            }
         print(f"\nCommitted: {commit_msg}")
 
         if push:
-            pull = run_git(repo_path, "pull", "--rebase", "--no-verify", "origin", "main")
-            if pull.returncode != 0:
-                print(f"Pull failed: {pull.stderr}")
-            result = run_git(repo_path, "push", "--no-verify")
-            if result.returncode == 0:
-                print("Pushed to remote")
+            import time
+            for attempt in range(3):
+                pull = run_git(repo_path, "pull", "--rebase", "--no-verify", "origin", "main")
+                if pull.returncode != 0:
+                    print(f"Pull failed (attempt {attempt+1}): {pull.stderr.strip()}")
+                result = run_git(repo_path, "push", "--no-verify")
+                if result.returncode == 0:
+                    print("Pushed to remote")
+                    break
+                print(f"Push failed (attempt {attempt+1}): {result.stderr.strip()}")
+                if attempt < 2:
+                    time.sleep(2 + attempt * 3)
             else:
-                print(f"Push failed: {result.stderr}")
+                print("Push failed after 3 attempts")
 
     return {
         "machine_id": machine_id,
